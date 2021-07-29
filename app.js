@@ -1,6 +1,7 @@
 //jshint esversion:6
 const express = require("express");
 const mongoose = require('mongoose');
+const _ = require('lodash')
 mongoose.connect("mongodb://localhost:27017/todolistDB", { useNewUrlParser: true, useUnifiedTopology: true })
 
 const app = express();
@@ -8,7 +9,6 @@ app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-const workItems = [];
 
 //Schema, Model, Default documents
 const itemSchema = new mongoose.Schema({
@@ -23,15 +23,16 @@ const food = new Item({
   name: "Buy Suya"
 })
 
-const cloth = new Item({
-  name: "Return Clothes"
+
+const defaultDocuments = [food];
+
+//New List Schema
+const listSchema = new mongoose.Schema({
+  name: String,
+  items: [itemSchema]
 })
 
-const grocery = new Item({
-  name: "Buy groceries from Shoprite"
-})
-
-const defaultDocuments = [food, cloth, grocery];
+const List = mongoose.model("List", listSchema)
 
 //Routes
 app.get("/", function (req, res) {
@@ -65,24 +66,99 @@ app.get("/", function (req, res) {
 app.post("/", function (req, res) {
 
   const item = req.body.newItem;
-
+  const listName = req.body.list;
   const postItem = new Item({
     name: item
   })
 
-  postItem.save();
+  if (listName === "Today") {
+    postItem.save();
+    res.redirect('/');
+  }
+  else {
 
-  res.redirect('/');
+    List.findOne({ name: listName }, (err, docs) => {
+      docs.items.push(postItem);
+      docs.save();
+      res.redirect('/' + listName);
+    })
+
+  }
 
 });
 
 app.post('/delete', (req, res) => {
-  console.log(req.body);
+  const checkedItemId = req.body.checkbox;
+  const listName = req.body.listName;
+
+  if (listName === "Today") {
+
+    Item.deleteOne({ _id: checkedItemId }, (err) => {
+      if (err) {
+        console.log(err)
+      }
+      else {
+        console.log("Item deleted");
+        res.redirect('/');
+      }
+    });
+
+  }
+
+  else {
+    List.findOneAndUpdate(
+      { name: listName },
+      {
+        $pull:
+        {
+          items:
+            { _id: checkedItemId }
+        }
+      },
+      (err, docs) => {
+        if (!err) {
+          res.redirect('/' + listName);
+        }
+      })
+  }
+
+
+
+
 })
 
-app.get("/work", function (req, res) {
-  res.render("list", { listTitle: "Work List", newListItems: workItems });
-});
+app.get('/:newRoute', (req, res) => {
+  const customListName = _.capitalize(req.params.newRoute);
+
+  List.findOne({ name: customListName }, (err, listItems) => {
+    if (err) {
+      console.log(err);
+    }
+    else {
+
+      if (!listItems) {
+        //Creating an array of default documents if the path doesn't exist
+
+        const list = new List({
+          name: customListName,
+          items: defaultDocuments
+        })
+
+        list.save();
+        res.redirect('/' + customListName);
+      }
+      else {
+        //Show an existing list
+        console.log("Found items: ", listItems);
+        res.render('list', { listTitle: customListName, newListItems: listItems.items })
+      }
+
+    }
+  })
+
+
+
+})
 
 app.get("/about", function (req, res) {
   res.render("about");
