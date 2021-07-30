@@ -1,8 +1,10 @@
 //jshint esversion:6
 const express = require("express");
 const mongoose = require('mongoose');
-const _ = require('lodash')
-mongoose.connect("mongodb://localhost:27017/todolistDB", { useNewUrlParser: true, useUnifiedTopology: true })
+const _ = require('lodash');
+require('dotenv').config();
+
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
 
 const app = express();
 app.set('view engine', 'ejs');
