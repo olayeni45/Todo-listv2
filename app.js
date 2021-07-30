@@ -11,12 +11,10 @@ app.use(express.static("public"));
 
 
 //Schema, Model, Default documents
-const itemSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true
-  }
-})
+const itemSchema = {
+  name: String
+};
+
 const Item = mongoose.model("Item", itemSchema)
 
 const food = new Item({
@@ -27,10 +25,10 @@ const food = new Item({
 const defaultDocuments = [food];
 
 //New List Schema
-const listSchema = new mongoose.Schema({
+const listSchema = {
   name: String,
   items: [itemSchema]
-})
+}
 
 const List = mongoose.model("List", listSchema)
 
@@ -122,43 +120,41 @@ app.post('/delete', (req, res) => {
       })
   }
 
-
-
-
 })
 
-app.get('/:newRoute', (req, res) => {
-  const customListName = _.capitalize(req.params.newRoute);
+app.get("/:customListName", function (req, res) {
+  const customListName = _.capitalize(req.params.customListName);
+  console.log(customListName);
 
-  List.findOne({ name: customListName }, (err, listItems) => {
+  List.findOne({ name: customListName }, function (err, foundList) {
+    if (!err) {
+      if (!foundList) {
+        //Create a new list
+        const list = new List({
+          name: customListName,
+          items: defaultDocuments
+        });
+        list.save();
+        res.redirect("/" + customListName);
+      } else {
+        //Show an existing list
+
+        res.render("list", { listTitle: foundList.name, newListItems: foundList.items });
+      }
+    }
+  });
+
+  //Deleting random list items
+  List.deleteMany({ name: "Favicon.ico" }, (err) => {
     if (err) {
       console.log(err);
     }
     else {
-
-      if (!listItems) {
-        //Creating an array of default documents if the path doesn't exist
-
-        const list = new List({
-          name: customListName,
-          items: defaultDocuments
-        })
-
-        list.save();
-        res.redirect('/' + customListName);
-      }
-      else {
-        //Show an existing list
-        console.log("Found items: ", listItems);
-        res.render('list', { listTitle: customListName, newListItems: listItems.items })
-      }
-
+      console.log("Deleted random items")
     }
   })
 
-
-
-})
+});
 
 app.get("/about", function (req, res) {
   res.render("about");
